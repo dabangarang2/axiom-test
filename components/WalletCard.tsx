@@ -42,7 +42,7 @@ export default function WalletCard({
       case "local":
         return "Local keypair using @solana/web3.js";
       case "web-crypto":
-        return "Browser Web Crypto API (ECDSA P-256)";
+        return "Browser Web Crypto API (Ed25519)";
       default:
         return "";
     }
@@ -68,10 +68,16 @@ export default function WalletCard({
         <div className="text-sm">
           <span className="font-medium text-gray-600">Chain:</span>
           <span className="ml-2">
-            {walletType === "web-crypto" ? "Browser Crypto" : "Solana"}
+            {walletType === "web-crypto" ? "Solana" : "Solana"}
           </span>
         </div>
       </div>
+      {walletType === "web-crypto" ? (
+        <p className="text-xs text-gray-500">
+          Uses Ed25519 via Web Crypto (SubtleCrypto) for Solana-compatible
+          signatures.
+        </p>
+      ) : null}
     </div>
   );
 }
