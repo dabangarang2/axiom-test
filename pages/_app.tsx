@@ -41,7 +41,7 @@ function MyApp({ Component, pageProps }: AppProps) {
         <meta name="description" content="Privy Auth Starter" />
       </Head>
       <PrivyProvider
-        appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID || ""}
+        appId="cmedb45od00gckv0bziqzslm4"
         config={{
           embeddedWallets: { showWalletUIs: false },
         }}

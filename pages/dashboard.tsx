@@ -27,12 +27,12 @@ export default function DashboardPage() {
   useEffect(() => {
     // Generate Web Crypto keypair once at startup for consistent testing
     async function generateKeyPair() {
+      // Use Ed25519 to match Solana's signature scheme
       const keyPair = await crypto.subtle.generateKey(
         {
-          name: "ECDSA",
-          namedCurve: "P-256", // Use P-256 curve for ECDSA
+          name: "Ed25519" as any,
         },
-        true, // Extractable (for testing purposes)
+        true,
         ["sign", "verify"]
       );
       setWebCryptoKeyPair(keyPair);
@@ -87,7 +87,7 @@ export default function DashboardPage() {
                   walletType="local"
                 />
                 <WalletCard
-                  walletAddress="Web Crypto API (P-256)"
+                  walletAddress="Web Crypto API (Ed25519)"
                   walletType="web-crypto"
                 />
               </div>

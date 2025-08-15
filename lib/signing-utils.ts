@@ -107,18 +107,17 @@ export class SigningUtils {
   }
 
   /**
-   * METHOD 3: Browser Web Crypto API Signing
+   * METHOD 3: Browser Web Crypto API Signing (Solana-compatible)
    *
-   * This method uses the browser's built-in Web Crypto API:
-   * - Uses ECDSA with P-256 curve (different from Solana's Ed25519)
-   * - Uses a single deterministic keypair for all tests (fair comparison)
+   * This method uses the browser's built-in Web Crypto API with Ed25519:
+   * - Uses Ed25519 (same curve used by Solana)
    * - All operations happen in the browser's secure crypto context
-   * - Performance varies by browser implementation
+   * - Performance varies by browser implementation and support
    *
    * How it works:
    * 1. Generate keypair once (cached for consistent testing)
    * 2. Convert message to bytes
-   * 3. Sign using ECDSA + SHA-256 algorithm
+   * 3. Sign using Ed25519 algorithm
    * 4. Return signature as base64
    *
    * Note: Key generation happens once, then cached for fair comparison
@@ -137,13 +136,10 @@ export class SigningUtils {
     // Convert message string to bytes
     const messageBytes = new TextEncoder().encode(message);
 
-    // Create signature using ECDSA + SHA-256
+    // Create signature using Ed25519 (Solana-compatible)
     const signature = await crypto.subtle.sign(
-      {
-        name: "ECDSA",
-        hash: "SHA-256", // Use SHA-256 for hashing before signing
-      },
-      webCryptoKeyPair.privateKey, // Use the pre-generated private key
+      { name: "Ed25519" } as any,
+      webCryptoKeyPair.privateKey,
       messageBytes
     );
 
