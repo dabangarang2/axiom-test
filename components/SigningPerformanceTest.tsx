@@ -1,9 +1,7 @@
 import React from "react";
-import { Connection, Keypair, PublicKey } from "@solana/web3.js";
+import { Connection, Keypair } from "@solana/web3.js";
 import { useSigningPerformance } from "../hooks/useSigningPerformance";
 import SigningPerformanceChart from "./SigningPerformanceChart";
-import { useEffect, useMemo, useState } from "react";
-import { SigningUtils } from "../lib/signing-utils";
 
 interface SigningPerformanceTestProps {
   localWallet: Keypair;
@@ -24,14 +22,6 @@ export default function SigningPerformanceTest({
     numTests: 15,
   };
 
-  const [sampleTxs, setSampleTxs] = useState<
-    {
-      method: "local" | "privy-client" | "web-crypto";
-      label: string;
-      preview: { feePayer: string; recentBlockhash: string; memo: string };
-    }[]
-  >([]);
-
   const {
     results,
     isRunning,
@@ -46,83 +36,6 @@ export default function SigningPerformanceTest({
     connection,
     recentBlockhash,
   });
-
-  const sampleMemo = useMemo(() => "Example memo transaction", []);
-
-  useEffect(() => {
-    async function buildSamples() {
-      if (!recentBlockhash) return;
-
-      const localTx = SigningUtils.buildMemoTransaction(
-        localWallet.publicKey,
-        recentBlockhash,
-        sampleMemo
-      );
-
-      const previews: {
-        method: "local" | "privy-client" | "web-crypto";
-        label: string;
-        preview: { feePayer: string; recentBlockhash: string; memo: string };
-      }[] = [
-        {
-          method: "local",
-          label: "Local Wallet Memo TX",
-          preview: {
-            feePayer: localTx.feePayer!.toBase58(),
-            recentBlockhash: localTx.recentBlockhash!,
-            memo: sampleMemo,
-          },
-        },
-      ];
-
-      if (privyWalletAddress) {
-        const privyTx = SigningUtils.buildMemoTransaction(
-          new PublicKey(privyWalletAddress),
-          recentBlockhash,
-          sampleMemo
-        );
-        previews.push({
-          method: "privy-client",
-          label: "Privy Wallet Memo TX",
-          preview: {
-            feePayer: privyTx.feePayer!.toBase58(),
-            recentBlockhash: privyTx.recentBlockhash!,
-            memo: sampleMemo,
-          },
-        });
-      }
-
-      // Web Crypto fee payer derived from Ed25519 public key
-      const publicKeyRaw = (await crypto.subtle.exportKey(
-        "raw",
-        webCryptoKeyPair.publicKey
-      )) as ArrayBuffer;
-      const webCryptoFeePayer = new PublicKey(new Uint8Array(publicKeyRaw));
-      const webTx = SigningUtils.buildMemoTransaction(
-        webCryptoFeePayer,
-        recentBlockhash,
-        sampleMemo
-      );
-      previews.push({
-        method: "web-crypto",
-        label: "Web Crypto (Ed25519) Memo TX",
-        preview: {
-          feePayer: webTx.feePayer!.toBase58(),
-          recentBlockhash: webTx.recentBlockhash!,
-          memo: sampleMemo,
-        },
-      });
-
-      setSampleTxs(previews);
-    }
-    buildSamples();
-  }, [
-    localWallet.publicKey,
-    privyWalletAddress,
-    webCryptoKeyPair,
-    recentBlockhash,
-    sampleMemo,
-  ]);
 
   const handleRunTest = (): void => {
     runPerformanceTest(testConfig);
@@ -215,27 +128,6 @@ export default function SigningPerformanceTest({
                     <span>{stat.totalTests}</span>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Example Transaction Preview */}
-      {sampleTxs.length > 0 && (
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
-          <h3 className="text-lg font-semibold mb-4">
-            Example Memo Transaction (per method)
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {sampleTxs.map((t) => (
-              <div key={t.method} className="p-4 bg-gray-50 rounded-lg">
-                <div className="text-sm font-medium text-gray-900 mb-2">
-                  {t.label}
-                </div>
-                <pre className="text-xs bg-white border border-gray-200 rounded p-3 overflow-auto">
-                  {JSON.stringify(t.preview, null, 2)}
-                </pre>
               </div>
             ))}
           </div>
