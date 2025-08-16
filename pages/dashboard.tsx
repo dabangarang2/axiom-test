@@ -4,7 +4,7 @@ import { usePrivy, WalletWithMetadata } from "@privy-io/react-auth";
 import Head from "next/head";
 import WalletCard from "../components/WalletCard";
 import SigningPerformanceTest from "../components/SigningPerformanceTest";
-import { Cluster, clusterApiUrl, Connection, Keypair } from "@solana/web3.js";
+import { Keypair } from "@solana/web3.js";
 
 // Fixed entropy for deterministic key generation across all methods
 // This ensures fair comparison by eliminating randomness in key generation
@@ -23,22 +23,6 @@ export default function DashboardPage() {
   const { ready, authenticated, user, logout } = usePrivy();
   const [webCryptoKeyPair, setWebCryptoKeyPair] =
     useState<CryptoKeyPair | null>(null);
-  const [connection, setConnection] = useState<Connection | null>(null);
-  const [recentBlockhash, setRecentBlockhash] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Initialize Solana connection (devnet by default)
-    const cluster: Cluster = "devnet";
-    const conn = new Connection(clusterApiUrl(cluster), "confirmed");
-    setConnection(conn);
-
-    // Fetch a recent blockhash for transactions
-    async function fetchBlockhash() {
-      const { blockhash } = await conn.getLatestBlockhash();
-      setRecentBlockhash(blockhash);
-    }
-    fetchBlockhash();
-  }, []);
 
   useEffect(() => {
     // Generate Web Crypto keypair once at startup for consistent testing
@@ -48,7 +32,7 @@ export default function DashboardPage() {
         {
           name: "Ed25519" as any,
         },
-        true,
+        false, // non-extractable for better key security
         ["sign", "verify"]
       );
       setWebCryptoKeyPair(keyPair);
@@ -72,7 +56,6 @@ export default function DashboardPage() {
     ) as WalletWithMetadata | undefined;
 
   if (!privyWalletAddress || !webCryptoKeyPair) return null;
-  if (!connection || !recentBlockhash) return null;
 
   return (
     <>
@@ -116,8 +99,6 @@ export default function DashboardPage() {
                 localWallet={LOCAL_WALLET}
                 webCryptoKeyPair={webCryptoKeyPair}
                 privyWalletAddress={privyWalletAddress.address}
-                connection={connection}
-                recentBlockhash={recentBlockhash}
               />
             </div>
             <p className="mt-6 font-bold uppercase text-sm text-gray-600">

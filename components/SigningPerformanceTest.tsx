@@ -1,5 +1,5 @@
 import React from "react";
-import { Connection, Keypair } from "@solana/web3.js";
+import { Keypair } from "@solana/web3.js";
 import { useSigningPerformance } from "../hooks/useSigningPerformance";
 import SigningPerformanceChart from "./SigningPerformanceChart";
 
@@ -7,16 +7,12 @@ interface SigningPerformanceTestProps {
   localWallet: Keypair;
   privyWalletAddress?: string;
   webCryptoKeyPair: CryptoKeyPair;
-  connection: Connection;
-  recentBlockhash: string;
 }
 
 export default function SigningPerformanceTest({
   localWallet,
   privyWalletAddress,
   webCryptoKeyPair,
-  connection,
-  recentBlockhash,
 }: SigningPerformanceTestProps) {
   const testConfig = {
     numTests: 15,
@@ -33,8 +29,6 @@ export default function SigningPerformanceTest({
     localWallet,
     privyWalletAddress,
     webCryptoKeyPair,
-    connection,
-    recentBlockhash,
   });
 
   const handleRunTest = (): void => {
