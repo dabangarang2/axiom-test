@@ -1,12 +1,17 @@
 import { useState, useCallback } from "react";
-import { Keypair } from "@solana/web3.js";
-import { useSignMessage } from "@privy-io/react-auth/solana";
+import { Connection, Keypair } from "@solana/web3.js";
+import {
+  useSignMessage,
+  useSignTransaction,
+} from "@privy-io/react-auth/solana";
 import { SigningUtils, SigningPerformanceData } from "../lib/signing-utils";
 
 interface UseSigningPerformanceProps {
   localWallet: Keypair;
   privyWalletAddress?: string;
   webCryptoKeyPair: CryptoKeyPair;
+  connection: Connection;
+  recentBlockhash: string;
 }
 
 interface TestConfig {
@@ -23,6 +28,8 @@ export function useSigningPerformance({
   localWallet,
   privyWalletAddress,
   webCryptoKeyPair,
+  connection,
+  recentBlockhash,
 }: UseSigningPerformanceProps) {
   const [results, setResults] = useState<SigningPerformanceData[]>([]);
   const [isRunning, setIsRunning] = useState(false);
@@ -33,6 +40,7 @@ export function useSigningPerformance({
   });
 
   const { signMessage } = useSignMessage();
+  const { signTransaction } = useSignTransaction();
 
   const runPerformanceTest = useCallback(
     async (config: TestConfig) => {
@@ -49,15 +57,16 @@ export function useSigningPerformance({
 
       let testCount = 0;
 
-      // Run local wallet tests
+      // Run local wallet tests (memo transaction)
 
       setProgress((prev) => ({ ...prev, currentMethod: "local" }));
 
       for (let i = 0; i < config.numTests; i++) {
-        const message = SigningUtils.generateTestMessage(testId, i);
-        const result = await SigningUtils.signWithLocalWallet(
+        const memo = SigningUtils.generateTestMessage(testId, i);
+        const result = await SigningUtils.signMemoTxWithLocalWallet(
           localWallet,
-          message
+          recentBlockhash ?? "11111111111111111111111111111111",
+          memo
         );
 
         // Skip the first test (warm-up)
@@ -80,20 +89,29 @@ export function useSigningPerformance({
         await new Promise((resolve) => setTimeout(resolve, 10));
       }
 
-      // Run Privy wallet tests
+      // Run Privy wallet tests (memo transaction)
 
       setProgress((prev) => ({ ...prev, currentMethod: "privy-client" }));
 
       for (let i = 0; i < config.numTests; i++) {
-        const message = SigningUtils.generateTestMessage(
+        const memo = SigningUtils.generateTestMessage(
           testId,
           i + config.numTests
         );
-        const result = await SigningUtils.signWithPrivyClient(
-          signMessage,
-          message,
-          privyWalletAddress
-        );
+        const result = privyWalletAddress
+          ? await SigningUtils.signMemoTxWithPrivy(
+              async ({ transaction, connection, address }) =>
+                await signTransaction({ transaction, connection, address }),
+              connection,
+              privyWalletAddress,
+              recentBlockhash,
+              memo
+            )
+          : {
+              timeTaken: 0,
+              signature: "",
+              method: "privy-client" as const,
+            };
 
         // Skip the first test (warm-up)
         if (i > 0) {
@@ -115,18 +133,19 @@ export function useSigningPerformance({
         await new Promise((resolve) => setTimeout(resolve, 10));
       }
 
-      // Run Web Crypto API tests
+      // Run Web Crypto API tests (memo transaction)
 
       setProgress((prev) => ({ ...prev, currentMethod: "web-crypto" }));
 
       for (let i = 0; i < config.numTests; i++) {
-        const message = SigningUtils.generateTestMessage(
+        const memo = SigningUtils.generateTestMessage(
           testId,
           i + config.numTests * 2
         );
-        const result = await SigningUtils.signWithWebCrypto(
+        const result = await SigningUtils.signMemoTxWithWebCrypto(
           webCryptoKeyPair,
-          message
+          recentBlockhash ?? "11111111111111111111111111111111",
+          memo
         );
         // Skip the first test (warm-up)
         if (i > 0) {
@@ -152,7 +171,14 @@ export function useSigningPerformance({
       setIsRunning(false);
       setProgress((prev) => ({ ...prev, currentMethod: "idle" }));
     },
-    [isRunning, localWallet, privyWalletAddress, signMessage]
+    [
+      isRunning,
+      localWallet,
+      privyWalletAddress,
+      signMessage,
+      connection,
+      recentBlockhash,
+    ]
   );
 
   const clearResults = useCallback(() => {

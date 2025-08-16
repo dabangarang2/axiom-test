@@ -1,4 +1,10 @@
-import { Keypair } from "@solana/web3.js";
+import {
+  Keypair,
+  PublicKey,
+  Transaction,
+  TransactionInstruction,
+  Connection,
+} from "@solana/web3.js";
 import nacl from "tweetnacl";
 
 /**
@@ -145,6 +151,141 @@ export class SigningUtils {
 
     // Stop timing
     const endTime = performance.now();
+
+    return {
+      timeTaken: endTime - startTime,
+      signature: Buffer.from(signature).toString("base64"),
+      method: "web-crypto",
+    };
+  }
+
+  // -------- Transaction (Memo) helpers --------
+
+  static buildMemoTransaction(
+    feePayer: PublicKey,
+    recentBlockhash: string,
+    memo: string
+  ): Transaction {
+    const memoProgramId = new PublicKey(
+      "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
+    );
+    const instruction = new TransactionInstruction({
+      programId: memoProgramId,
+      keys: [],
+      data: Buffer.from(memo, "utf8"),
+    });
+
+    const tx = new Transaction();
+    tx.feePayer = feePayer;
+    tx.recentBlockhash = recentBlockhash;
+    tx.add(instruction);
+    return tx;
+  }
+
+  static async signMemoTxWithLocalWallet(
+    keypair: Keypair,
+    recentBlockhash: string,
+    memo: string
+  ): Promise<SigningResult> {
+    const tx = this.buildMemoTransaction(
+      keypair.publicKey,
+      recentBlockhash,
+      memo
+    );
+
+    const startTime = performance.now();
+    tx.sign(keypair);
+    const endTime = performance.now();
+
+    const sig = tx.signatures.find((s) =>
+      s.publicKey.equals(keypair.publicKey)
+    )?.signature;
+
+    return {
+      timeTaken: endTime - startTime,
+      signature: sig ? Buffer.from(sig).toString("base64") : "",
+      method: "local",
+    };
+  }
+
+  static async signMemoTxWithPrivy(
+    signTransaction: (params: {
+      transaction: Transaction;
+      connection: Connection;
+      address?: string;
+    }) => Promise<unknown>,
+    connection: Connection,
+    walletAddress: string,
+    recentBlockhash: string,
+    memo: string
+  ): Promise<SigningResult> {
+    const feePayer = new PublicKey(walletAddress);
+    const tx = this.buildMemoTransaction(feePayer, recentBlockhash, memo);
+
+    const startTime = performance.now();
+    const signedTx = await signTransaction({
+      transaction: tx,
+      connection,
+      address: walletAddress,
+    });
+    const endTime = performance.now();
+
+    let sigBase64 = "";
+    if (
+      Array.isArray((signedTx as Transaction).signatures) &&
+      (signedTx as any).signatures[0] &&
+      typeof (signedTx as any).signatures[0] === "object" &&
+      "publicKey" in (signedTx as any).signatures[0]
+    ) {
+      const match = (signedTx as Transaction).signatures.find((s) =>
+        s.publicKey.equals(feePayer)
+      )?.signature;
+      sigBase64 = match ? Buffer.from(match).toString("base64") : "";
+    } else if (
+      Array.isArray((signedTx as any).signatures) &&
+      ((signedTx as any).signatures[0] instanceof Uint8Array ||
+        (signedTx as any).signatures[0] instanceof Buffer)
+    ) {
+      const first = (signedTx as any).signatures[0] as
+        | Buffer
+        | Uint8Array
+        | null;
+      sigBase64 = first ? Buffer.from(first).toString("base64") : "";
+    }
+
+    return {
+      timeTaken: endTime - startTime,
+      signature: sigBase64,
+      method: "privy-client",
+    };
+  }
+
+  static async signMemoTxWithWebCrypto(
+    webCryptoKeyPair: CryptoKeyPair,
+    recentBlockhash: string,
+    memo: string
+  ): Promise<SigningResult> {
+    // Export raw public key bytes for fee payer
+    const publicKeyRaw = (await crypto.subtle.exportKey(
+      "raw",
+      webCryptoKeyPair.publicKey
+    )) as ArrayBuffer;
+    const feePayer = new PublicKey(new Uint8Array(publicKeyRaw));
+    const tx = this.buildMemoTransaction(feePayer, recentBlockhash, memo);
+
+    // Serialize the message to sign
+    const messageBytes = tx.serializeMessage();
+
+    const startTime = performance.now();
+    const signature = await crypto.subtle.sign(
+      { name: "Ed25519" } as any,
+      webCryptoKeyPair.privateKey,
+      messageBytes
+    );
+    const endTime = performance.now();
+
+    // Attach signature to the transaction (verifies internally)
+    tx.addSignature(feePayer, Buffer.from(signature));
 
     return {
       timeTaken: endTime - startTime,
